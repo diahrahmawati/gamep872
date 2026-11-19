@@ -1,0 +1,227 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Small Free Hero: Petualangan Abrisam</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 50% 0,#2e7d32,#124116);font-family:'Trebuchet MS',system-ui,sans-serif;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100%}
+#bar{display:flex;gap:6px;padding:8px;flex-wrap:wrap;justify-content:center}
+button{font:inherit;font-weight:700;background:#a5d6a7;color:#1b5e20;border:0;border-radius:20px;padding:8px 14px;cursor:pointer;box-shadow:0 3px 0 #4caf50}
+button:active{transform:translateY(2px)}
+button:focus-visible{outline:3px solid #ffd600}
+#wrap{position:relative;width:100%;max-width:800px}
+canvas{width:100%;display:block;border-radius:14px;background:#c8e6c9;touch-action:none}
+.ov{position:absolute;inset:0;background:rgba(18,65,22,.92);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;overflow:auto}
+.ov h1{margin:0 0 6px;font-size:clamp(22px,5vw,38px)}
+.hid{display:none}
+.card{background:#fff;color:#1b5e20;border-radius:16px;padding:14px 18px;max-width:94%;text-align:left;font-size:15px;max-height:80%;overflow:auto}
+.card div{margin:5px 0}
+.map{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}.map span{padding:8px 10px;border-radius:12px;background:#e0e0e0;color:#757575}.map .ok{background:#c8e6c9;color:#1b5e20}.map .cur{background:#2e7d32;color:#fff}
+.qo{display:block;width:100%;margin:6px 0;text-align:left;border-radius:12px}
+.qo.y{background:#66bb6a;color:#fff}.qo.n{background:#ef9a9a;color:#7f0000}
+#ctl{display:flex;gap:10px;padding:10px;justify-content:center}
+#ctl button{font-size:20px;padding:12px 22px}
+</style></head><body>
+<div id="bar"><button onclick="startG()">▶ Mulai</button><button onclick="panel('m')">Misi</button><button onclick="panel('p')">Peta</button><button onclick="panel('i')">Item</button><button onclick="panel('f')">Materi</button><button onclick="panel('s')">Skor</button><button id="mu" onclick="mute()">🔊</button></div>
+<div id="wrap"><canvas id="c" width="800" height="450"></canvas>
+<div id="start" class="ov"><h1>🌿 Small Free Hero 🌿</h1><h2 style="margin:0 0 4px">Petualangan Abrisam</h2><p style="margin:0 0 12px">Siswa kelas 7 SMP</p><p style="max-width:480px">Bantu Abrisam menjelajahi 7 area sekolah, selesaikan 12 misi kebersihan dan kesehatan, jawab kuis, lalu jadi segar dan percaya diri!<br><small>Jalan: ← → / A D · Lompat: W / ↑ · Aksi: E / Spasi (atau tombol di bawah)</small><br><small>Awas kuman 🦠! Lompat dan injak dari atas untuk membasminya. Tiga kuman = satu ❤️ pulih.</small></p><p id="best"></p><button style="font-size:20px" onclick="startG()">▶ Mulai Petualangan</button></div>
+<div id="pn" class="ov hid" onclick="closeP()"><div class="card" id="pc" onclick="event.stopPropagation()"></div><button style="margin-top:12px" onclick="closeP()">Tutup</button></div>
+<div id="qz" class="ov hid"><div class="card" id="qc"></div></div>
+<div id="fin" class="ov hid"><h1>🌸 Petualangan selesai! 🌸</h1><div id="fst" style="font-size:44px"></div><p style="max-width:480px;font-size:17px">Terus jaga kebersihan tubuh agar tetap segar dan percaya diri setiap hari!</p><h2 id="fs"></h2><div id="fa" style="max-width:480px"></div><button style="margin-top:10px" onclick="restart()">Main Lagi</button></div></div>
+<div id="ctl"><button id="bl" aria-label="Kiri">◀</button><button id="bj" aria-label="Lompat">⤒ Lompat</button><button id="ba">✋ Aksi</button><button id="br" aria-label="Kanan">▶</button></div>
+<script>
+const C=document.getElementById('c'),g=C.getContext('2d'),W=800,H=450,GY=350,HI=135,MID=90,TOT=150;
+const M=[
+{id:'guru',t:'Temui Bu Guru di kelas',p:10,m:'Mandi 2x sehari dengan sabun membantu menghilangkan bau badan.'},
+{id:'item',t:'Kumpulkan sabun, deodoran, sikat gigi & handuk',p:20,m:'Sabun, deodoran, sikat gigi, dan handuk bersih adalah teman tubuh segar!'},
+{id:'sampah',t:'Buang sampah pada tempatnya',p:10,m:'Sampah pada tempatnya membuat sekolah bersih dan sehat.'},
+{id:'tangan',t:'Cuci tangan di toilet pakai sabun',p:15,m:'Cuci tangan pakai sabun 20 detik membersihkan kuman!'},
+{id:'gigi',t:'Sikat gigi di wastafel',p:10,m:'Sikat gigi 2x sehari, pagi dan sebelum tidur, mencegah gigi berlubang dan bau mulut.'},
+{id:'minum',t:'Minum air putih di kantin',p:10,m:'Air putih 8 gelas sehari menjaga tubuh segar dan membantu membuang racun lewat keringat dan urine.'},
+{id:'buah',t:'Makan buah segar di kantin',p:10,m:'Buah dan sayur memberi vitamin agar tubuh kuat dan kulit sehat.'},
+{id:'main',t:'Main bola di lapangan',p:5,m:'Olahraga itu sehat, tapi keringat bisa memicu bau. Segera bersihkan diri!'},
+{id:'seka',t:'Seka keringat dengan handuk di bangku',p:10,m:'Menyeka keringat dengan handuk bersih membuat tubuh nyaman.'},
+{id:'baju',t:'Ganti pakaian bersih di loker',p:15,m:'Ganti baju setelah berkeringat agar bakteri tidak berkembang.'},
+{id:'kuis',t:'Jawab kuis kesehatan dari perawat UKS',p:20,m:'Belajar sambil bermain: kebiasaan kecil setiap hari membuat perbedaan besar!'},
+{id:'taman',t:'Sampai di taman sekolah',p:15,m:'Kamu berhasil! Abrisam kini segar dan harum!'}];
+const AN=['Kelas','Lorong Sekolah','Toilet Sekolah','Kantin','Lapangan Sekolah','Ruang UKS','Taman Sekolah'];
+const REQ=[['guru'],['item','sampah'],['tangan','gigi'],['minum','buah'],['main','seka','baju'],['kuis'],['taman']];
+const O=[[['teacher',600,'👩‍🏫','Bicara']],
+[['trash',100,'🥤','Ambil sampah'],['soap',190,'🧼','Ambil sabun'],['sign',280,'💡','Baca petunjuk'],['deo',360,'🧴','Ambil deodoran'],['brush',450,'🪥','Ambil sikat gigi'],['towel',540,'🧻','Ambil handuk'],['bin',700,'🗑️','Buang']],
+[['sink',250,'🚰','Cuci tangan'],['teeth',420,'🪥','Sikat gigi'],['mirror',600,'🪞','Lihat cermin']],
+[['water',200,'💧','Minum air putih'],['soda',330,'🥤','Beli minuman'],['fruit',460,'🍎','Makan buah'],['cook',620,'👨‍🍳','Ngobrol']],
+[['ball',250,'⚽','Main bola'],['locker',480,'👕','Ganti baju'],['bench',660,'🪑','Seka badan']],
+[['nurse',330,'👩‍⚕️','Kuis kesehatan'],['poster',600,'📋','Baca poster']],
+[['bird',250,'🐦','Lihat burung'],['flower',450,'🌸','Cium bunga']]];
+const FX=['Ganti handuk dan pakaian dalam setiap hari. Kuman suka kain lembap.','Kuku pendek dan bersih mencegah kuman bersembunyi.','Bau badan muncul saat bakteri menguraikan keringat. Keringatnya sendiri nyaris tak berbau.','Tidur 8 jam membantu tubuh tumbuh dan tetap segar.','Keringkan sela jari dan ketiak setelah mandi agar jamur tidak tumbuh.','Pakai pakaian bersih dan bahan menyerap keringat saat berolahraga.'];
+const BANK=[['Berapa lama cuci tangan pakai sabun yang baik?',['5 detik','20 detik','1 menit'],1],['Kapan waktu terbaik memakai deodoran?',['Setelah mandi, kulit bersih dan kering','Sebelum olahraga tanpa mandi','Tidak perlu'],0],['Apa penyebab utama bau badan?',['Keringat itu sendiri','Bakteri yang menguraikan keringat','Makan buah'],1],['Berapa kali sikat gigi sehari?',['1 kali','2 kali','Sesekali'],1],['Setelah main bola berkeringat, apa yang sebaiknya dilakukan?',['Langsung tidur','Seka badan dan ganti baju bersih','Pakai baju yang sama besok'],1],['Minuman terbaik untuk tubuh adalah...',['Air putih','Minuman manis','Minuman bersoda'],0],['Kapan wajib cuci tangan?',['Sebelum makan dan setelah dari toilet','Hanya saat tangan kotor sekali','Tidak perlu'],0],['Mengapa membuang sampah di tempatnya penting?',['Agar sekolah bersih dan bebas penyakit','Supaya terlihat rajin saja','Tidak ada alasan'],0]];
+const TIPS=['Mandi 2x sehari dan keringkan badan dengan baik, terutama area ketiak.','Pakai deodoran setelah mandi dan kenakan pakaian bersih setiap hari.','Minum air putih, cuci baju rutin, dan jaga kebersihan lingkungan!'];
+const CA=[['#e8f5e9','#a1887f'],['#dcedc8','#bcaaa4'],['#e0f7fa','#b0bec5'],['#fff8e1','#d7ccc8'],['#81d4fa','#66bb6a'],['#f1f8e9','#cfd8dc'],['#81d4fa','#81c784']];
+let S,K={},run=false,paused=false,mt=false,ac=null,best=0;
+try{best=+localStorage.getItem('abr_best')||0}catch(e){}
+if(best)document.getElementById('best').textContent='Skor terbaik: '+best+'/'+TOT;
+function init(){S={a:0,x:80,sc:0,done:{},inv:[],sweat:0,clean:0,wash:0,kick:0,brush:0,pf:0,tips:0,right:0,bub:null,bt:0,Q:[],P:[],t:0,end:0,trash:0,gone:{},lvl:-1,cd:0,face:1,soda:0,y:0,vy:0,hp:3,kills:0,inv2:0,G:[]}}
+init();
+function beep(f,d,tp){if(mt)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),v=ac.createGain();o.type=tp||'sine';o.frequency.value=f;v.gain.value=.06;o.connect(v);v.connect(ac.destination);o.start();v.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.stop(ac.currentTime+d)}catch(e){}}
+function mute(){mt=!mt;document.getElementById('mu').textContent=mt?'🔇':'🔊';if(mt)stopM();else if(run)music()}
+let mg=null,nt=0,ms=0,tm=null,nb=null;
+const TH=[
+{b:84,w:'triangle',r:60,m:[0,4,7,4,9,7,4,2],B:[-12,-12,-5,-7],v:.05},
+{b:100,w:'triangle',r:62,m:[0,2,4,7,4,2,9,7],B:[-12,-5,-12,-3],h:1,v:.05},
+{b:76,w:'sine',r:65,m:[0,-1,7,-1,12,-1,7,2],B:[-12,99,-7,99],v:.06},
+{b:112,w:'square',r:67,m:[0,4,7,12,7,4,9,5],B:[-12,99,-5,99],h:1,v:.025},
+{b:128,w:'sawtooth',r:60,m:[0,4,7,12,7,4,0,7],B:[-12,-12,-5,-5],h:1,k:1,v:.02},
+{b:66,w:'sine',r:57,m:[0,-1,-1,7,-1,4,-1,-1],B:[-12,99,99,-5],v:.07},
+{b:92,w:'triangle',r:64,m:[0,2,4,7,9,7,4,2],B:[-12,-5,-8,-5],v:.055}];
+function mf(n){return 440*2**((n-69)/12)}
+function note(f,t,d,tp,v){const o=ac.createOscillator(),n=ac.createGain();o.type=tp;o.frequency.value=f;n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(n);n.connect(mg);o.start(t);o.stop(t+d)}
+function slide(f1,f2,t,d,v){const o=ac.createOscillator(),n=ac.createGain();o.frequency.setValueAtTime(f1,t);o.frequency.exponentialRampToValueAtTime(f2,t+d);n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(n);n.connect(mg);o.start(t);o.stop(t+d)}
+function hat(t,v){nb=nb||(()=>{const b=ac.createBuffer(1,4410,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b})();const s=ac.createBufferSource(),f=ac.createBiquadFilter(),n=ac.createGain();s.buffer=nb;f.type='highpass';f.frequency.value=7000;n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+.05);s.connect(f);f.connect(n);n.connect(mg);s.start(t)}
+function sfx(a,t){const r=Math.random();
+ if(a==0&&r<.08)note(900,t,.05,'sine',.05);
+ else if(a==1&&r<.06)note(220,t,.08,'square',.02);
+ else if(a==2&&r<.14)slide(1500,700,t,.18,.05);
+ else if(a==3&&r<.12)note(2400+Math.random()*600,t,.06,'sine',.04);
+ else if(a==4&&r<.03)slide(1900,2700,t,.45,.03);
+ else if(a==5&&ms%16==0)note(1000,t,.07,'sine',.04);
+ else if(a==6&&r<.14){slide(2600,3600,t,.1,.04);slide(3200,2400,t+.12,.1,.04)}}
+function sched(){if(mt||!ac||!mg)return;const T=TH[S.a];
+ while(nt<ac.currentTime+.2){const tr=[0,5,7,5][(ms>>3)%4],s=ms%8,mn=T.m[s];
+  if(mn>=0)note(mf(T.r+mn+tr),nt,.28,T.w,T.v);
+  if(s%2==0){const b=T.B[s>>1];if(b!=99)note(mf(T.r+b+tr),nt,.4,'sine',T.v*1.6)}
+  if(T.h)hat(nt,s%2?.03:.015);
+  if(T.k&&s%2==0)slide(160,45,nt,.14,.12);
+  sfx(S.a,nt);nt+=30/T.b;ms++}}
+function music(){if(tm||mt)return;try{ac=ac||new AudioContext();if(ac.state=='suspended')ac.resume();if(!mg){mg=ac.createGain();mg.gain.value=.7;mg.connect(ac.destination)}nt=ac.currentTime+.1;ms=0;tm=setInterval(sched,40)}catch(e){}}
+function stopM(){clearInterval(tm);tm=null}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopM();else if(run&&!mt)music()});
+function say(t,big){S.Q.push({t,big})}
+function stars(n,ch){for(let i=0;i<n;i++)S.P.push({x:S.x,y:GY-60,vx:(Math.random()-.5)*7,vy:-Math.random()*7-2,l:60+Math.random()*30,c:ch||'★',s:16+Math.random()*14})}
+function done(id){if(S.done[id])return;const m=M.find(q=>q.id==id);S.done[id]=1;S.sc+=m.p;stars(14);beep(660,.15);setTimeout(()=>beep(880,.2),120);say(m.m);
+ const L=S.sc>=HI?2:S.sc>=MID?1:0;
+ if(S.sc>=10&&L!=S.lvl){S.lvl=L;say(L==0?'Ayo terus menjaga kebersihan tubuh!':L==1?'Hebat! Pertahankan kebiasaan bersih setiap hari!':'Kamu harum setiap hari!',L==2)}
+ if(id=='taman'){S.end=1;stars(40,'✿');beep(1040,.5)}}
+function has(i){return S.inv.includes(i)}
+function fact(){const f=FX[S.pf%FX.length];S.pf++;say('Tahukah kamu? '+f)}
+function act(o){const k=o[0];
+ if(k=='teacher'){if(!S.done.guru){say('Ayo, Abrisam! Petualangan menjaga kebersihan dimulai!');done('guru')}else say('Cari perlengkapan di lorong, ya!')}
+ else if(['soap','deo','towel','brush'].includes(k)){if(S.gone[k])return;S.gone[k]=1;S.inv.push(k);stars(6);beep(520,.1);if(['soap','deo','towel','brush'].every(has))done('item');else say('Dapat item kebersihan! ✨')}
+ else if(k=='trash'){if(S.gone[k])return;S.gone[k]=1;S.trash=1;say('Sampah diambil. Cari tempat sampah!')}
+ else if(k=='bin'){if(S.trash){S.trash=0;done('sampah')}else say(S.done.sampah?'Terima kasih sudah menjaga kebersihan!':'Tempat sampah. Cari sampahnya dulu!')}
+ else if(k=='sign')say('Tips: ambil sabun, deodoran, sikat gigi, dan handuk, lalu buang sampah!');
+ else if(k=='sink'){if(S.done.tangan)say('Tangan sudah bersih!');else if(!has('soap'))say('Butuh sabun! Cek lorong dulu.');else S.wash=150}
+ else if(k=='teeth'){if(S.done.gigi)say('Gigi sudah bersih dan segar!');else if(!has('brush'))say('Butuh sikat gigi! Cek lorong dulu.');else S.brush=150}
+ else if(k=='mirror')say(S.sc>=MID?'Wah, Abrisam makin segar!':'Abrisam masih bau... ayo selesaikan misi!');
+ else if(k=='water'){if(!S.done.minum)done('minum');else say('Sudah minum, tubuh terasa segar!')}
+ else if(k=='soda'){S.soda++;say(S.soda>2?'Minuman manis terlalu sering bikin gigi dan badan tidak sehat. Pilih air putih!':'Hmm, minuman manis tidak sebaik air putih.')}
+ else if(k=='fruit'){if(!S.done.buah)done('buah');else say('Buahnya enak dan sehat!')}
+ else if(k=='cook')say(TIPS[S.tips++%3]);
+ else if(k=='ball'){if(!S.done.main)S.kick=110;else say('Cukup olahraganya, saatnya bersih-bersih!')}
+ else if(k=='locker'){if(!S.done.main)say('Main bola dulu supaya ada yang diganti.');else if(!S.clean){S.clean=1;done('baju')}else say('Baju bersih, nyaman!')}
+ else if(k=='bench'){if(!S.done.main)say('Belum berkeringat.');else if(!has('towel'))say('Butuh handuk dari lorong.');else if(!S.done.seka){S.sweat=0;done('seka')}else say('Sudah kering dan segar!')}
+ else if(k=='nurse'){if(!S.done.kuis)quiz();else say('Kuismu sudah selesai. Pertahankan kebiasaan bersih!')}
+ else if(k=='poster'){fact()}
+ else if(k=='bird')say('Burung berkicau. Udara bersih bikin hati senang!');
+ else if(k=='flower')say('Bunga-bunga mekar menyambut Abrisam!')}
+let qs=[],qi=0;
+function quiz(){qs=BANK.slice().sort(()=>Math.random()-.5).slice(0,4);qi=0;S.right=0;paused=true;document.getElementById('qz').classList.remove('hid');showQ()}
+function showQ(){const q=qs[qi],c=document.getElementById('qc');
+ c.innerHTML='<b>👩‍⚕️ Kuis UKS ('+(qi+1)+'/4)</b><div style="margin:8px 0">'+q[0]+'</div>'+q[1].map((o,i)=>'<button class="qo" onclick="ans('+i+',this)">'+o+'</button>').join('')}
+function ans(i,b){const q=qs[qi],ok=i==q[2];document.querySelectorAll('.qo').forEach((e,j)=>{e.disabled=true;if(j==q[2])e.classList.add('y')});if(!ok)b.classList.add('n');else{S.right++;beep(784,.15)}if(!ok)beep(200,.25,'square');
+ setTimeout(()=>{qi++;if(qi<4)showQ();else{document.getElementById('qz').classList.add('hid');paused=false;say('Kuis selesai! Benar '+S.right+' dari 4.',true);done('kuis')}},900)}
+function near(){let b=null,d=55;for(const o of O[S.a]){if(S.gone[o[0]])continue;const q=Math.abs(o[1]-S.x);if(q<d){d=q;b=o}}return b}
+function upd(){S.t++;const lock=S.wash||S.kick||S.brush||S.end;
+ if(!lock){if(K.l){S.x-=3.4;S.face=-1}if(K.r){S.x+=3.4;S.face=1}}
+ S.x=Math.max(30,Math.min(W-30,S.x));
+ germs();
+ if(K.act){K.act=0;if(!lock&&!S.y){const o=near();if(o)act(o)}}
+ if(S.wash){S.wash--;if(S.wash==0)done('tangan');if(S.t%4==0)S.P.push({x:S.x+Math.random()*16,y:GY-70,vx:0,vy:3,l:25,c:'💧',s:14})}
+ if(S.brush){S.brush--;if(S.brush==0)done('gigi');if(S.t%6==0)S.P.push({x:S.x+10,y:GY-75,vx:1,vy:-1,l:30,c:'🫧',s:16})}
+ if(S.kick){S.kick--;if(S.kick==0){S.sweat=1;done('main')}}
+ if(S.sweat&&S.t%12==0)S.P.push({x:S.x+(Math.random()*30-15),y:GY-115,vx:0,vy:2,l:30,c:'💧',s:14});
+ if(S.sc>=HI&&S.t%5==0)S.P.push({x:S.x+(Math.random()-.5)*120,y:GY-20-Math.random()*80,vx:(Math.random()-.5),vy:-1.2,l:60,c:Math.random()<.5?'✿':'✦',s:14+Math.random()*10});
+ if(S.a==6&&S.x>380)done('taman');
+ if(S.x>W-48&&S.a<6){if(REQ[S.a].every(i=>S.done[i])){S.a++;S.x=60;spawn();beep(523,.12);setTimeout(()=>beep(659,.12),110);setTimeout(()=>beep(784,.2),220);say('Area baru: '+AN[S.a]+'!')}else{S.x=W-52;if(S.cd<=0){say('Selesaikan misi di area ini dulu!');S.cd=200}}}
+ if(S.cd>0)S.cd--;
+ if(S.bub){S.bt--;if(S.bt<=0)S.bub=null}
+ if(!S.bub&&S.Q.length){S.bub=S.Q.shift();S.bt=S.bub.big?240:170}
+ S.P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.c=='★'||p.c=='✿')p.vy+=.18;p.l--});S.P=S.P.filter(p=>p.l>0);
+ if(S.end&&S.end++>260)finish()}
+function spawn(){S.G=[];if(S.a>=1&&S.a<=4)for(let i=0;i<2+(S.a>2?1:0);i++)S.G.push({x:260+i*200+Math.random()*60,d:i%2?1:-1,l:1,rs:0})}
+function germs(){const lock=S.wash||S.kick||S.brush||S.end;
+ if(K.j&&!S.y&&!S.vy&&!lock){S.vy=-11;beep(500,.08)}K.j=0;
+ if(S.y||S.vy){S.vy+=.6;S.y+=S.vy;if(S.y>=0){S.y=0;S.vy=0}}
+ if(S.inv2>0)S.inv2--;
+ for(const e of S.G){if(!e.l){if(--e.rs<=0){e.l=1;e.x=W-120}continue}
+  e.x+=e.d*(1+S.a*.2);if(e.x<150||e.x>W-100)e.d*=-1;
+  if(Math.abs(e.x-S.x)<28){
+   if(S.vy>0&&S.y<-8){e.l=0;e.rs=500;S.vy=-8;S.kills++;stars(6,'✦');beep(900,.1);if(S.kills%3==0&&S.hp<3){S.hp++;say('Tiga kuman terbasmi! ❤️ pulih satu.')}}
+   else if(S.y>-30&&S.inv2<=0&&!S.end){S.hp--;S.inv2=90;S.x=Math.max(30,S.x-S.face*50);beep(160,.25,'square');
+    if(S.hp<=0){S.hp=3;S.x=60;say('Kuman menang! Kembali ke awal area. Lompati kuman untuk membasminya!')}else say('Awas kuman! Lompat dan injak untuk membasminya.')}}}}
+function drawG(){for(const e of S.G)if(e.l)em('🦠',e.x,GY-4-Math.abs(Math.sin(S.t/8+e.x))*6,40)}
+function finish(){run=false;stopM();[523,659,784,1046,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.25,'triangle'),i*160));const r=S.right,st=r>=4?3:r>=2?2:1;
+ document.getElementById('fst').textContent='⭐'.repeat(st)+'☆'.repeat(3-st);
+ document.getElementById('fs').textContent='Skor akhir: '+S.sc+'/'+TOT+' · Kuis '+r+'/4';
+ const A=[];if(r==4)A.push('🧠 Juara Kuis');if(S.soda==0)A.push('🥛 Anti Minuman Manis');if(S.pf>=3)A.push('📚 Kutu Buku Kesehatan');if(S.kills>=5)A.push('🦠 Pembasmi Kuman');A.push('🧼 Pahlawan Bersih');
+ document.getElementById('fa').innerHTML=A.map(a=>'<span style="display:inline-block;margin:4px;padding:6px 10px;border-radius:12px;background:#a5d6a7;color:#1b5e20">'+a+'</span>').join('');
+ if(S.sc>best){best=S.sc;try{localStorage.setItem('abr_best',best)}catch(e){}}
+ document.getElementById('fin').classList.remove('hid')}
+function rr(x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r)}
+function em(t,x,y,s){g.font=s+'px serif';g.textAlign='center';g.fillText(t,x,y)}
+function bg(){const c=CA[S.a],t=S.t;g.fillStyle=c[0];g.fillRect(0,0,W,GY);g.fillStyle=c[1];g.fillRect(0,GY,W,H-GY);
+ if(S.a>=4&&S.a!=5){g.fillStyle='rgba(255,255,255,.8)';for(let i=0;i<3;i++){const x=(t*.2+i*300)%1000-100;g.beginPath();g.arc(x,90+i*25,26,0,7);g.arc(x+30,86+i*25,32,0,7);g.arc(x+62,92+i*25,24,0,7);g.fill()}}
+ if(S.a==0){g.fillStyle='#2e7d32';rr(100,50,220,110,8);g.fill();g.fillStyle='#fff';g.font='bold 22px sans-serif';g.textAlign='center';g.fillText('Jaga Kebersihan!',210,112);g.fillStyle='#8d6e63';for(let i=0;i<3;i++)g.fillRect(380+i*110,GY-30,70,10);em('🕐',480,100,50)}
+ if(S.a==1){for(let i=0;i<8;i++){g.fillStyle=i%2?'#81c784':'#66bb6a';g.fillRect(20+i*96,70,80,200)}}
+ if(S.a==2){g.strokeStyle='#fff';for(let i=0;i<W;i+=50){g.beginPath();g.moveTo(i,0);g.lineTo(i,GY);g.stroke()}for(let j=0;j<GY;j+=50){g.beginPath();g.moveTo(0,j);g.lineTo(W,j);g.stroke()}}
+ if(S.a==3){for(let i=0;i<10;i++){g.fillStyle=i%2?'#ef5350':'#fff';g.fillRect(i*80,60,80,40)}g.fillStyle='#8d6e63';g.fillRect(0,GY-26,W,16);g.fillStyle='#ffcc80';g.fillRect(0,GY-30,W,6)}
+ if(S.a==4){g.fillStyle='#fdd835';g.beginPath();g.arc(700,70,38,0,7);g.fill();g.fillStyle='#fff';g.fillRect(60,GY-90,8,90);g.fillRect(60,GY-90,70,6)}
+ if(S.a==5){g.fillStyle='#e53935';g.fillRect(380,50,50,16);g.fillRect(397,33,16,50);em('🛏️',130,GY-10,60);em('🛏️',230,GY-10,60)}
+ if(S.a==6){g.fillStyle='#43a047';for(let i=0;i<6;i++)em('🌳',60+i*140,GY-10,80);for(let i=0;i<9;i++)em('🌷',40+i*90,GY+50,28)}
+ if(S.a<6){const ok=REQ[S.a].every(i=>S.done[i]);g.fillStyle=ok?'#43a047':'#e53935';rr(W-44,GY-120,44,120,6);g.fill();em(ok?'➡️':'🔒',W-22,GY-50,26)}}
+function obj(){const t=S.t;for(const o of O[S.a]){if(S.gone[o[0]])continue;let y=GY-8+Math.sin(t/12+o[1])*(['soap','deo','towel','trash','sign','brush'].includes(o[0])?5:0);
+ if(o[0]=='ball'&&S.kick)y-=Math.abs(Math.sin(t/5))*60;
+ em(o[2],o[1],y,['teacher','nurse','cook'].includes(o[0])?72:46)}
+ const n=near();if(n&&n[3]&&!S.wash&&!S.kick&&!S.brush){g.fillStyle='rgba(27,94,32,.9)';rr(n[1]-65,GY-112+Math.sin(t/8)*3,130,24,12);g.fill();g.fillStyle='#fff';g.font='bold 13px sans-serif';g.textAlign='center';g.fillText('E · '+n[3],n[1],GY-95+Math.sin(t/8)*3)}
+ if(S.a==2&&S.wash){g.fillStyle='rgba(255,255,255,.7)';for(let i=0;i<6;i++){g.beginPath();g.arc(S.x+(i*13+t*2)%50-10,GY-60-(t+i*9)%30,5+i%3,0,7);g.fill()}}}
+function hero(){const x=S.x,t=S.t,walk=(K.l||K.r)&&!S.wash&&!S.kick&&!S.brush,sw=walk?Math.sin(t/3):0,b=walk?sw*3:Math.sin(t/20)*1.5,y=GY+b+S.y;
+ const st=Math.max(0,1-S.sc/HI)+(S.sweat?.25:0);if(S.inv2>0&&Math.floor(S.inv2/6)%2)g.globalAlpha=.4;
+ if(S.sc>=HI){const gr=g.createRadialGradient(x,y-50,10,x,y-50,90);gr.addColorStop(0,'rgba(255,255,200,.8)');gr.addColorStop(1,'rgba(255,255,200,0)');g.fillStyle=gr;g.fillRect(x-100,y-150,200,200)}
+ g.fillStyle='#e65100';rr(x-S.face*22-9,y-68,18,36,6);g.fill();g.fillStyle='#bf360c';g.fillRect(x-S.face*22-7,y-52,14,5);g.fillStyle='#1a3a8a';g.fillRect(x-14,y-26,10,22+sw*4);g.fillRect(x+4,y-26,10,22-sw*4);
+ g.fillStyle='#fff';g.fillRect(x-14,y-6+sw*4,10,4);g.fillRect(x+4,y-6-sw*4,10,4);g.fillStyle='#212121';g.fillRect(x-16,y-2+sw*4,14,4);g.fillRect(x+3,y-2-sw*4,14,4);
+ g.fillStyle=S.clean||S.sc>=MID?'#ffffff':'#d9d39a';rr(x-20,y-70,40,48,10);g.fill();g.strokeStyle='#cfd8dc';g.lineWidth=1;g.stroke();
+ g.fillStyle='#ffcc80';g.fillRect(x-28,y-66-sw*3,8,30);g.fillRect(x+20,y-66+sw*3,8,30);g.fillStyle=S.clean||S.sc>=MID?'#ffffff':'#d9d39a';g.fillRect(x-29,y-67-sw*3,10,14);g.fillRect(x+19,y-67+sw*3,10,14);g.fillStyle='#ffcc80';
+ g.beginPath();g.arc(x,y-88,24,0,7);g.fill();g.fillStyle='#212121';g.beginPath();g.arc(x,y-96,24,Math.PI,0);g.fill();g.beginPath();g.moveTo(x-24,y-96);g.lineTo(x+S.face*12,y-96);g.lineTo(x-S.face*8,y-85);g.closePath();g.fill();
+ g.fillStyle='#bdbdbd';g.fillRect(x-1,y-66,2,36);g.strokeStyle='#90a4ae';g.lineWidth=1;g.strokeRect(x+7.5,y-60.5,9,8);g.fillStyle='#d32f2f';g.fillRect(x+8,y-60,8,4);g.fillStyle='#fff';g.fillRect(x+8,y-56,8,4);g.fillStyle='#1a3a8a';g.fillRect(x-20,y-30,40,8);g.fillStyle='#fdd835';g.fillRect(x-4,y-30,8,8);
+ const ex=S.face*3;g.fillStyle='#000';g.beginPath();g.arc(x-8+ex,y-88,3,0,7);g.arc(x+8+ex,y-88,3,0,7);g.fill();
+ g.strokeStyle='#000';g.lineWidth=2;g.beginPath();if(st>.6){g.arc(x+ex,y-72,6,Math.PI*1.15,Math.PI*1.85);g.moveTo(x-14,y-98);g.lineTo(x-4,y-95);g.moveTo(x+14,y-98);g.lineTo(x+4,y-95)}else if(st>.2){g.moveTo(x-5+ex,y-76);g.lineTo(x+5+ex,y-76)}else{g.arc(x+ex,y-80,8,.1,Math.PI-.1)}g.stroke();
+ const n=Math.ceil(st*7);g.lineWidth=3;for(let i=0;i<n;i++){const a=i/7*6.28+t/25,cx=x+Math.cos(a)*(40+i*3),cy=y-70+Math.sin(a)*45;g.strokeStyle='rgba(120,160,20,'+(.35+st*.4)+')';g.beginPath();g.moveTo(cx-8,cy);g.bezierCurveTo(cx-4,cy-9,cx+4,cy+9,cx+8,cy);g.stroke();if(i%2==0)em('💨',cx,cy-8,18)}
+ if(S.sc>=MID&&S.sc<HI){g.strokeStyle='rgba(33,150,243,.7)';g.fillStyle='rgba(129,212,250,.25)';g.lineWidth=4;g.beginPath();g.arc(x,y-60,62,0,7);g.fill();g.stroke();em('🛡️',x+52,y-95+Math.sin(t/10)*4,30)}
+ if(S.trash)em('🥤',x+32,y-48,22)}
+function bubble(){if(!S.bub)return;const b=S.bub,fs=b.big?30:17,mw=b.big?520:300;g.font='bold '+fs+'px sans-serif';
+ const w=b.t.split(' '),L=[];let l='';for(const q of w){if(g.measureText(l+q).width>mw){L.push(l);l=q+' '}else l+=q+' '}L.push(l);
+ const bw=Math.min(mw+30,Math.max(...L.map(s=>g.measureText(s).width))+34),bh=L.length*(fs+6)+22;
+ let bx=b.big?W/2-bw/2:Math.max(8,Math.min(W-bw-8,S.x-bw/2)),by=b.big?110:Math.max(54,GY-150-bh);
+ g.fillStyle='#fff';g.strokeStyle='#2e7d32';g.lineWidth=4;rr(bx,by,bw,bh,20);g.fill();g.stroke();
+ if(!b.big&&by+bh<GY-130){g.beginPath();g.moveTo(S.x-8,by+bh);g.lineTo(S.x,by+bh+16);g.lineTo(S.x+8,by+bh);g.fillStyle='#fff';g.fill()}
+ g.fillStyle='#1b5e20';g.textAlign='center';L.forEach((s,i)=>g.fillText(s.trim(),bx+bw/2,by+fs+10+i*(fs+6)))}
+function hud(){g.fillStyle='rgba(27,94,32,.85)';rr(8,8,W-16,40,14);g.fill();g.fillStyle='#fff';g.font='bold 16px sans-serif';g.textAlign='left';g.fillText('📍 '+AN[S.a]+' ('+(S.a+1)+'/7)',20,34);
+ const m=M.find(q=>!S.done[q.id]);g.textAlign='center';g.font='13px sans-serif';g.fillText(m?'Misi: '+m.t:'Semua misi selesai!',W/2+30,33,400);
+ g.fillStyle='#a5d6a7';rr(W-160,18,90,18,9);g.fill();g.fillStyle='#ffd600';rr(W-160,18,Math.max(0,90*S.sc/TOT),18,9);g.fill();g.fillStyle='#fff';g.textAlign='left';g.font='bold 15px sans-serif';g.fillText('⭐'+S.sc,W-62,34);g.font='20px serif';g.fillText('❤️'.repeat(S.hp)+'🖤'.repeat(3-S.hp)+'  🦠×'+S.kills,12,76)}
+function draw(){bg();obj();drawG();hero();S.P.forEach(p=>{g.globalAlpha=Math.min(1,p.l/20);g.fillStyle=p.c=='✿'?'#f48fb1':p.c=='✦'?'#fff59d':'#ffd600';em(p.c,p.x,p.y,p.s)});g.globalAlpha=1;hud();bubble()}
+function loop(){if(run&&!paused){upd()}draw();requestAnimationFrame(loop)}
+function startG(){music();document.getElementById('start').classList.add('hid');document.getElementById('fin').classList.add('hid');if(!run){run=true;if(!S.t||S.t<2){S.Q=[];say('Ayo, Abrisam! Petualangan menjaga kebersihan dimulai!')}}}
+function restart(){init();run=false;startG()}
+function panel(k){const p=document.getElementById('pc');let h='';
+ if(k=='m')h='<b>🎯 Misi</b>'+M.map(m=>'<div>'+(S.done[m.id]?'✅':'⬜')+' '+m.t+' <small>(+'+m.p+')</small></div>').join('');
+ if(k=='p')h='<b>🗺️ Peta Sekolah</b><div class="map">'+AN.map((n,i)=>'<span class="'+(i==S.a?'cur':i<S.a?'ok':'')+'">'+(i>S.a?'🔒 ':i<S.a?'✅ ':'📍 ')+n+'</span>').join('')+'</div>';
+ if(k=='i'){const N={soap:'🧼 Sabun',deo:'🧴 Deodoran',towel:'🧻 Handuk',brush:'🪥 Sikat gigi'};h='<b>🎒 Item</b>'+(S.inv.length?S.inv.map(i=>'<div>'+N[i]+'</div>').join(''):'<div>Belum ada item. Jelajahi lorong!</div>')+(S.clean?'<div>👕 Pakaian bersih (dipakai)</div>':'')}
+ if(k=='f'){const a=M.filter(m=>S.done[m.id]).map(m=>'<div>✅ '+m.m+'</div>'),b=FX.slice(0,S.pf).map(f=>'<div>💡 '+f+'</div>');h='<b>📚 Materi yang kamu pelajari</b>'+(a.length+b.length?a.concat(b).join(''):'<div>Belum ada. Selesaikan misi dan baca poster di UKS!</div>')}
+ if(k=='s')h='<b>⭐ Skor</b><div style="font-size:30px">'+S.sc+' / '+TOT+'</div><div>'+(S.sc>=HI?'Segar dan percaya diri!':S.sc>=MID?'Efek bau hampir hilang. Hebat!':'Efek bau masih ada. Ayo lanjut!')+'</div>'+(best?'<div>Terbaik: '+best+'</div>':'');
+ p.innerHTML=h;document.getElementById('pn').classList.remove('hid');paused=true}
+function closeP(){document.getElementById('pn').classList.add('hid');paused=false}
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k=='arrowleft'||k=='a')K.l=1;if(k=='arrowright'||k=='d')K.r=1;if(k=='e'||k==' '||k=='enter'){K.act=1;e.preventDefault()}if(k=='arrowup'||k=='w'){K.j=1;e.preventDefault()}});
+addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k=='arrowleft'||k=='a')K.l=0;if(k=='arrowright'||k=='d')K.r=0});
+[['bl','l'],['br','r']].forEach(([id,k])=>{const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();K[k]=1});['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,()=>K[k]=0))});
+document.getElementById('ba').addEventListener('pointerdown',e=>{e.preventDefault();K.act=1});
+document.getElementById('bj').addEventListener('pointerdown',e=>{e.preventDefault();K.j=1});
+loop();
+</script></body></html>
